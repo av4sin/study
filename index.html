@@ -86,6 +86,13 @@
             <label class="color-line">Sombreado tarjetas
                 <input type="checkbox" id="cardShadowToggle" checked>
             </label>
+            <div style="display:flex;justify-content:center;margin-top:8px;width:100%;">
+                <label class="toggle-switch" style="display:inline-flex;align-items:center;gap:12px;cursor:pointer;user-select:none;">
+                    <input type="checkbox" id="oledPresetToggle" aria-checked="false">
+                    <span class="toggle-slider" aria-hidden="true"></span>
+                    <span class="toggle-label">OLED Preset</span>
+                </label>
+            </div>
         </div>
     </aside>
 
@@ -117,6 +124,8 @@
 
         const hideDividersToggle = document.getElementById('hideDividersToggle');
         const cardShadowToggle = document.getElementById('cardShadowToggle');
+        const oledPresetToggle = document.getElementById('oledPresetToggle');
+        let oledPresetBackup = null;
         const CARD_SHADOW_KEY = 'flip-clock-card-shadow';
         const HIDE_DIVIDERS_KEY = 'flip-clock-hide-dividers';
         let hideDividersEnabled = false;
@@ -500,6 +509,73 @@
             });
         }
 
+        // Preset para pantallas OLED: fondo negro, ocultar divisoria, quitar sombras, desactivar wake lock y segundos
+        if (oledPresetToggle) {
+            oledPresetToggle.addEventListener('change', async (e) => {
+                const checked = e.target.checked;
+                e.target.setAttribute('aria-checked', String(checked));
+
+                if (checked) {
+                    // Guardar estado actual
+                    oledPresetBackup = {
+                        theme: getTheme(),
+                        hideDividers: hideDividersToggle ? hideDividersToggle.checked : hideDividersEnabled,
+                        cardShadow: cardShadowToggle ? cardShadowToggle.checked : document.documentElement.classList.contains('cards-shadow'),
+                        secondsEnabled: secondsEnabled,
+                        wakeLockEnabled: wakeLockEnabled
+                    };
+
+                    // Aplicar preset OLED
+                    bgColor.value = '#000000';
+                    cardColor.value = '#000000';
+                    topDigitColor.value = '#6b6b6b';
+                    bottomDigitColor.value = '#bdbdbd';
+                    applyTheme(getTheme());
+                    saveTheme();
+
+                    if (hideDividersToggle) hideDividersToggle.checked = true;
+                    applyHideDividers(true);
+                    saveHideDividersPreference();
+
+                    if (cardShadowToggle) cardShadowToggle.checked = false;
+                    applyCardShadow(false);
+                    saveCardShadowPreference();
+
+                    setSecondsEnabled(false);
+                    await setWakeLockEnabled(false);
+
+                    showControls();
+                    return;
+                }
+
+                // Restaurar configuración previa
+                if (oledPresetBackup) {
+                    const b = oledPresetBackup;
+                    applyTheme(b.theme);
+                    bgColor.value = b.theme.bg;
+                    cardColor.value = b.theme.card;
+                    topDigitColor.value = b.theme.top;
+                    bottomDigitColor.value = b.theme.bottom;
+                    digitFontSelect.value = b.theme.font;
+                    saveTheme();
+
+                    if (hideDividersToggle) hideDividersToggle.checked = b.hideDividers;
+                    applyHideDividers(b.hideDividers);
+                    saveHideDividersPreference();
+
+                    if (cardShadowToggle) cardShadowToggle.checked = b.cardShadow;
+                    applyCardShadow(b.cardShadow);
+                    saveCardShadowPreference();
+
+                    setSecondsEnabled(Boolean(b.secondsEnabled));
+                    await setWakeLockEnabled(Boolean(b.wakeLockEnabled));
+                }
+
+                oledPresetBackup = null;
+                showControls();
+            });
+        }
+
         secondsToggleBtn.addEventListener('click', () => {
             setSecondsEnabled(!secondsEnabled);
             showControls();
@@ -544,6 +620,12 @@
 
         scheduleTick();
         showControls();
+        // Ensure OLED preset is off by default on load
+        if (oledPresetToggle) {
+            oledPresetToggle.checked = false;
+            oledPresetToggle.setAttribute('aria-checked', 'false');
+            oledPresetBackup = null;
+        }
     </script>
 </body>
 </html>
